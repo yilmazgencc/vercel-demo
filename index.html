@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vercel Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .feature {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 1.5rem;
+            border-radius: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .feature:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature h3 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .button {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+
+        .button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 2rem 0;
+            gap: 1rem;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 1rem;
+            border-radius: 10px;
+            flex: 1;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .clock {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Vercel'e Hoş Geldiniz!</h1>
+        <p>Modern web uygulamalarınızı saniyeler içinde deploy edin</p>
+
+        <div class="clock" id="clock">00:00:00</div>
+
+        <div class="stats">
+            <div class="stat-box" onclick="incrementCounter()">
+                <div class="stat-number" id="counter">0</div>
+                <div class="stat-label">Deployment Sayısı</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="visitors">1</div>
+                <div class="stat-label">Ziyaretçi</div>
+            </div>
+        </div>
+
+        <div>
+            <span class="badge">✅ Production</span>
+            <span class="badge">🌐 Global CDN</span>
+            <span class="badge">⚡ Edge Network</span>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <h3>⚡</h3>
+                <p>Hızlı Deploy</p>
+            </div>
+            <div class="feature">
+                <h3>🌍</h3>
+                <p>Global CDN</p>
+            </div>
+            <div class="feature">
+                <h3>🔒</h3>
+                <p>Otomatik HTTPS</p>
+            </div>
+            <div class="feature">
+                <h3>🔄</h3>
+                <p>Auto Rollback</p>
+            </div>
+            <div class="feature">
+                <h3>📊</h3>
+                <p>Analytics</p>
+            </div>
+            <div class="feature">
+                <h3>🎯</h3>
+                <p>Preview URLs</p>
+            </div>
+        </div>
+
+        <a href="https://vercel.com" class="button" target="_blank">Vercel'i Keşfet</a>
+
+        <p style="margin-top: 2rem; font-size: 0.9rem; opacity: 0.7;">
+            🎉 Bu sayfa Vercel ile canlıda!
+        </p>
+    </div>
+
+    <script>
+        // Basit bir interaktif özellik
+        const features = document.querySelectorAll('.feature');
+        features.forEach((feature, index) => {
+            feature.style.animationDelay = `${index * 0.1}s`;
+            feature.style.animation = 'fadeInUp 0.8s ease forwards';
+        });
+
+        // Canlı saat
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // Deployment counter
+        let deploymentCount = parseInt(localStorage.getItem('deploymentCount') || '0');
+        document.getElementById('counter').textContent = deploymentCount;
+
+        function incrementCounter() {
+            deploymentCount++;
+            localStorage.setItem('deploymentCount', deploymentCount);
+            document.getElementById('counter').textContent = deploymentCount;
+
+            // Animasyon efekti
+            const counterEl = document.getElementById('counter');
+            counterEl.style.transform = 'scale(1.3)';
+            setTimeout(() => {
+                counterEl.style.transform = 'scale(1)';
+            }, 200);
+        }
+
+        // Ziyaretçi sayısını simüle et
+        let visitorCount = 1;
+        setInterval(() => {
+            visitorCount += Math.floor(Math.random() * 3);
+            document.getElementById('visitors').textContent = visitorCount;
+        }, 5000);
+
+        // Console log
+        console.log('🎉 Vercel Demo sayfası yüklendi!');
+        console.log('📊 Deployment Counter: Tıklayarak artırabilirsiniz');
+        console.log('⏰ Canlı saat çalışıyor');
+        console.log('🌐 Production URL: ' + window.location.href);
+    </script>
+</body>
+</html>
