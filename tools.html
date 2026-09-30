@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Araçlar · Vercel Demo</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body><main>
+  <h1>Araçlar</h1><p class="lead">Tamamen tarayıcıda çalışır; veriler localStorage'da saklanır.</p>
+
+  <h2>✅ Yapılacaklar</h2>
+  <form class="row" id="todoForm"><input id="todoIn" placeholder="Yeni görev…" aria-label="Yeni görev" required><button>Ekle</button>
+    <select id="filter" style="width:auto" aria-label="Filtre"><option value="all">Hepsi</option><option value="open">Açık</option><option value="done">Biten</option></select></form>
+  <ul class="todos" id="todos"></ul><p class="muted" id="todoCount"></p>
+
+  <h2>📝 Markdown önizleme</h2>
+  <div class="split"><textarea id="md" aria-label="Markdown"># Başlık
+
+**kalın**, *italik*, `kod` ve [bağlantı](https://vercel.com)
+
+- madde bir
+- madde iki</textarea><div class="preview" id="mdOut"></div></div>
+
+  <h2>⏳ Geri sayım</h2>
+  <div class="row"><input type="datetime-local" id="target" style="max-width:260px" aria-label="Hedef tarih"><span class="big" id="cd">–</span></div>
+</main><footer>Vercel ile yayınlandı</footer>
+<script type="module">
+import { esc } from '/assets/app.js';
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+
+const todosEl = document.getElementById('todos');
+let todos = load('todos', []);
+const saveTodos = () => localStorage.setItem('todos', JSON.stringify(todos));
+function renderTodos() {
+  const f = filter.value;
+  const shown = todos.filter((t) => f === 'all' || (f === 'done') === t.done);
+  todosEl.innerHTML = shown.map((t) => `<li class="${t.done ? 'done' : ''}"><input type="checkbox" style="width:auto" data-id="${t.id}" ${t.done ? 'checked' : ''} aria-label="Tamamlandı"><span>${esc(t.text)}</span><button class="ghost" data-del="${t.id}" aria-label="Sil">✕</button></li>`).join('');
+  todoCount.textContent = `${todos.filter((t) => !t.done).length} açık / ${todos.length} toplam`;
+}
+todoForm.onsubmit = (e) => { e.preventDefault(); const text = todoIn.value.trim(); if (!text) return;
+  todos.unshift({ id: Date.now(), text, done: false }); todoIn.value = ''; saveTodos(); renderTodos(); };
+todosEl.onclick = (e) => { const id = +(e.target.dataset.id || e.target.dataset.del); if (!id) return;
+  if (e.target.dataset.del) todos = todos.filter((t) => t.id !== id); else { const t = todos.find((x) => x.id === id); t.done = !t.done; }
+  saveTodos(); renderTodos(); };
+filter.onchange = renderTodos; renderTodos();
+
+function markdown(src) {
+  const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\*([^*]+)\*/g, '<i>$1</i>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  let html = '', inList = false;
+  for (const line of src.split('\n')) {
+    const h = line.match(/^(#{1,3})\s+(.*)/), li = line.match(/^[-*]\s+(.*)/);
+    if (inList && !li) { html += '</ul>'; inList = false; }
+    if (h) html += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;
+    else if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(li[1])}</li>`; }
+    else if (line.trim()) html += `<p>${inline(line)}</p>`;
+  }
+  return html + (inList ? '</ul>' : '');
+}
+md.value = load('md', md.value);
+const renderMd = () => { mdOut.innerHTML = markdown(md.value); localStorage.setItem('md', JSON.stringify(md.value)); };
+md.oninput = renderMd; renderMd();
+
+target.value = load('target', '');
+function tick() {
+  if (!target.value) return (cd.textContent = '–');
+  let s = Math.floor((new Date(target.value) - Date.now()) / 1000);
+  if (s <= 0) return (cd.textContent = 'Süre doldu 🎉');
+  const d = Math.floor(s / 86400); s %= 86400;
+  cd.textContent = `${d}g ${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+target.onchange = () => { localStorage.setItem('target', JSON.stringify(target.value)); tick(); };
+setInterval(tick, 1000); tick();
+</script></body></html>

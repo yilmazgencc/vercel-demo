@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard · Vercel Demo</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body><main>
+  <h1>Dashboard</h1><p class="lead">Seçilen uç noktaya belirli aralıklarla istek atar ve gecikmeyi çizer.</p>
+  <div class="row">
+    <select id="ep" style="width:auto"><option value="/health">/health</option><option value="/api/quote">/api/quote</option><option value="/api/posts">/api/posts</option></select>
+    <select id="int" style="width:auto"><option value="1000">1 sn</option><option value="2000" selected>2 sn</option><option value="5000">5 sn</option></select>
+    <button id="toggle">Durdur</button><button class="ghost" id="reset">Sıfırla</button>
+  </div>
+  <div class="grid" style="margin:1rem 0">
+    <div class="card"><div class="muted">Son</div><div class="big" id="last">–</div></div>
+    <div class="card"><div class="muted">Ortalama</div><div class="big" id="avg">–</div></div>
+    <div class="card"><div class="muted">p95</div><div class="big" id="p95">–</div></div>
+    <div class="card"><div class="muted">Hata oranı</div><div class="big" id="err">0%</div></div>
+  </div>
+  <div class="card"><canvas id="c" role="img" aria-label="Gecikme grafiği (ms)"></canvas></div>
+</main><footer>Vercel ile yayınlandı</footer>
+<script type="module">
+import { api } from '/assets/app.js';
+const MAX = 40; let samples = [], total = 0, fails = 0, timer = null;
+const ctx = c.getContext('2d');
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function stats() {
+  const ok = samples.filter((s) => s !== null); if (!ok.length) return;
+  const sorted = [...ok].sort((a, b) => a - b);
+  last.textContent = ok.at(-1).toFixed(0) + ' ms';
+  avg.textContent = (ok.reduce((a, b) => a + b, 0) / ok.length).toFixed(0) + ' ms';
+  p95.textContent = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))].toFixed(0) + ' ms';
+  err.textContent = ((fails / total) * 100).toFixed(0) + '%';
+}
+function draw() {
+  const dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  const vals = samples.filter((s) => s !== null); const max = Math.max(50, ...vals) * 1.15, pad = 28;
+  ctx.strokeStyle = css('--line'); ctx.fillStyle = css('--muted'); ctx.font = '11px sans-serif'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const y = pad / 2 + ((h - pad) * i) / 4; ctx.beginPath(); ctx.moveTo(36, y); ctx.lineTo(w, y); ctx.stroke();
+    ctx.fillText(Math.round(max * (1 - i / 4)) + '', 2, y + 4); }
+  const x = (i) => 36 + ((w - 40) * i) / (MAX - 1), y = (v) => pad / 2 + (h - pad) * (1 - v / max);
+  ctx.strokeStyle = css('--accent'); ctx.lineWidth = 2; ctx.beginPath(); let started = false;
+  samples.forEach((v, i) => { if (v === null) { started = false; return; } started ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); started = true; });
+  ctx.stroke();
+  samples.forEach((v, i) => { ctx.fillStyle = v === null ? '#ef5350' : css('--accent'); ctx.beginPath(); ctx.arc(x(i), v === null ? h - 10 : y(v), 3, 0, 7); ctx.fill(); });
+}
+async function tick() {
+  total++;
+  try { const { ms } = await api(ep.value + '?_=' + Date.now()); samples.push(ms); }
+  catch { fails++; samples.push(null); }
+  if (samples.length > MAX) samples.shift();
+  stats(); draw();
+}
+function start() { clearInterval(timer); tick(); timer = setInterval(tick, +int.value); toggle.textContent = 'Durdur'; }
+toggle.onclick = () => { if (timer) { clearInterval(timer); timer = null; toggle.textContent = 'Başlat'; } else start(); };
+reset.onclick = () => { samples = []; total = fails = 0; last.textContent = avg.textContent = p95.textContent = '–'; err.textContent = '0%'; draw(); };
+ep.onchange = int.onchange = () => { reset.onclick(); start(); };
+addEventListener('resize', draw); start();
+</script></body></html>

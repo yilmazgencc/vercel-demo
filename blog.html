@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blog · Vercel Demo</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body><main>
+  <h1>Blog</h1><p class="lead">Yazılar <code>/api/posts</code> uç noktasından çekilir.</p>
+  <div class="row"><input id="q" type="search" placeholder="Ara…" aria-label="Ara"><select id="tag" style="width:auto"><option value="">Tüm etiketler</option></select></div>
+  <p class="muted" id="count" style="margin:.8rem 0"></p>
+  <div class="grid" id="list"></div>
+</main><footer>Vercel ile yayınlandı</footer>
+<script type="module">
+import { api, esc } from '/assets/app.js';
+let t;
+async function load() {
+  const p = new URLSearchParams({ q: q.value.trim(), tag: tag.value });
+  for (const [k, v] of [...p]) if (!v) p.delete(k);
+  try {
+    const { data } = await api('/api/posts?' + p);
+    if (tag.options.length === 1) data.tags.forEach((x) => tag.add(new Option(x, x)));
+    count.textContent = `${data.count} yazı`;
+    list.innerHTML = data.posts.map((x) => `<article class="card"><span class="tag">${esc(x.tag)}</span><span class="muted">${x.minutes} dk</span>
+      <h3 style="margin-top:.4rem">${esc(x.title)}</h3><p class="muted">${esc(x.summary)}</p></article>`).join('') || '<p class="muted">Sonuç yok.</p>';
+  } catch { count.textContent = 'Yazılar yüklenemedi.'; }
+}
+q.oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };
+tag.onchange = load; load();
+</script></body></html>

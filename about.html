@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hakkında · Vercel Demo</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body><main>
+  <h1>Hakkında</h1><p class="lead">Bu proje Vercel'in temel yeteneklerini tek yerde gösterir.</p>
+  <div class="grid">
+    <div class="card"><h3>Statik hosting</h3><p class="muted">HTML/CSS/JS dosyaları global CDN'den sunulur; <code>cleanUrls</code> ile <code>/blog</code> gibi temiz adresler.</p></div>
+    <div class="card"><h3>Serverless API</h3><p class="muted"><code>/api</code> klasöründeki her dosya bir fonksiyondur: health, quote, posts.</p></div>
+    <div class="card"><h3>vercel.json</h3><p class="muted">Güvenlik başlıkları, önbellek kuralları ve <code>/health</code> rewrite'ı.</p></div>
+    <div class="card"><h3>Preview deploy</h3><p class="muted">Her branch/commit için ayrı URL; <code>--prod</code> ile canlıya alınır.</p></div>
+  </div>
+  <h2>Yerelde çalıştırma</h2>
+<pre>npx vercel dev --listen 3000
+# http://localhost:3000</pre>
+  <h2>Uç noktalar</h2>
+<pre>GET /health
+GET /api/quote?id=0
+GET /api/posts?tag=backend&amp;q=cache</pre>
+</main><footer>Vercel ile yayınlandı</footer>
+<script type="module" src="/assets/app.js"></script></body></html>
