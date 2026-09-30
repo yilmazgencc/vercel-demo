@@ -7,7 +7,7 @@
   <h2>✅ Yapılacaklar</h2>
   <form class="row" id="todoForm"><input id="todoIn" placeholder="Yeni görev…" aria-label="Yeni görev" required><button>Ekle</button>
     <select id="filter" style="width:auto" aria-label="Filtre"><option value="all">Hepsi</option><option value="open">Açık</option><option value="done">Biten</option></select></form>
-  <ul class="todos" id="todos"></ul><p class="muted" id="todoCount"></p>
+  <ul class="todos" id="todos"></ul><p class="muted" id="todoCount"></p><p class="muted" id="storeInfo"></p>
 
   <h2>📝 Markdown önizleme</h2>
   <div class="split"><textarea id="md" aria-label="Markdown"># Başlık
@@ -25,20 +25,35 @@ import { esc } from '/assets/app.js';
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 
 const todosEl = document.getElementById('todos');
-let todos = load('todos', []);
-const saveTodos = () => localStorage.setItem('todos', JSON.stringify(todos));
+let todos = [], remote = false;
+const saveLocal = () => localStorage.setItem('todos', JSON.stringify(todos));
+async function call(method, url, body) {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+  return r.status === 204 ? null : r.json();
+}
+async function loadTodos() {
+  try { todos = await call('GET', '/api/todos'); remote = true; }
+  catch { todos = load('todos', []); remote = false; }
+  storeInfo.textContent = remote ? 'Kayıt yeri: Supabase' : 'Kayıt yeri: tarayıcı (Supabase erişilemiyor)';
+  renderTodos();
+}
+async function mutate(remoteFn, localFn) {
+  try { if (remote) { await remoteFn(); await loadTodos(); return; } } catch (e) { storeInfo.textContent = 'Hata: ' + e.message; return; }
+  localFn(); saveLocal(); renderTodos();
+}
 function renderTodos() {
   const f = filter.value;
   const shown = todos.filter((t) => f === 'all' || (f === 'done') === t.done);
   todosEl.innerHTML = shown.map((t) => `<li class="${t.done ? 'done' : ''}"><input type="checkbox" style="width:auto" data-id="${t.id}" ${t.done ? 'checked' : ''} aria-label="Tamamlandı"><span>${esc(t.text)}</span><button class="ghost" data-del="${t.id}" aria-label="Sil">✕</button></li>`).join('');
   todoCount.textContent = `${todos.filter((t) => !t.done).length} açık / ${todos.length} toplam`;
 }
-todoForm.onsubmit = (e) => { e.preventDefault(); const text = todoIn.value.trim(); if (!text) return;
-  todos.unshift({ id: Date.now(), text, done: false }); todoIn.value = ''; saveTodos(); renderTodos(); };
+todoForm.onsubmit = (e) => { e.preventDefault(); const text = todoIn.value.trim(); if (!text) return; todoIn.value = '';
+  mutate(() => call('POST', '/api/todos', { text }), () => todos.unshift({ id: Date.now(), text, done: false })); };
 todosEl.onclick = (e) => { const id = +(e.target.dataset.id || e.target.dataset.del); if (!id) return;
-  if (e.target.dataset.del) todos = todos.filter((t) => t.id !== id); else { const t = todos.find((x) => x.id === id); t.done = !t.done; }
-  saveTodos(); renderTodos(); };
-filter.onchange = renderTodos; renderTodos();
+  if (e.target.dataset.del) mutate(() => call('DELETE', `/api/todos?id=${id}`), () => { todos = todos.filter((t) => t.id !== id); });
+  else { const t = todos.find((x) => x.id === id); mutate(() => call('PATCH', `/api/todos?id=${id}`, { done: !t.done }), () => { t.done = !t.done; }); } };
+filter.onchange = renderTodos; loadTodos();
 
 function markdown(src) {
   const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\*([^*]+)\*/g, '<i>$1</i>')
