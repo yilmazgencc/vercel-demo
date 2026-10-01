@@ -20,7 +20,8 @@ export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 
 export async function api(path) {
   const t0 = performance.now();
-  const res = await fetch(path);
+  const adminKey = localStorage.getItem('adminKey');
+  const res = await fetch(path, adminKey ? { headers: { 'x-admin-key': adminKey } } : undefined);
   const ms = performance.now() - t0;
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { ms });
   return { data: await res.json(), ms };

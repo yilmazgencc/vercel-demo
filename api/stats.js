@@ -22,6 +22,9 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
+      const key = process.env.ADMIN_KEY;
+      if (!key) return res.status(503).json({ error: 'ADMIN_KEY yapılandırılmamış' });
+      if (req.headers['x-admin-key'] !== key) return res.status(401).json({ error: 'yetkisiz' });
       const docs = await col.find({}).sort({ views: -1 }).toArray();
       return res.json({
         total: docs.reduce((n, d) => n + d.views, 0),

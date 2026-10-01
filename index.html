@@ -14,8 +14,10 @@
     <div class="row" style="margin-top:.8rem"><button id="next">Başka söz</button></div></div>
   <h2>Sunucu durumu</h2>
   <div class="card"><span class="dot" id="dot"></span><span id="health" class="muted">kontrol ediliyor…</span></div>
-  <h2>Ziyaret istatistikleri</h2>
-  <div class="card"><span id="stats" class="muted">yükleniyor…</span></div>
+  <section id="statsBox" hidden>
+    <h2>Ziyaret istatistikleri <span class="muted" style="font-size:.9rem">(admin)</span></h2>
+    <div class="card"><span id="stats" class="muted">yükleniyor…</span></div>
+  </section>
 </main>
 <footer>Vercel ile yayınlandı</footer>
 <script type="module">
@@ -32,7 +34,7 @@ async function loadHealth() {
 async function loadStats() {
   try { const { data } = await api('/api/stats');
     stats.innerHTML = `Toplam <b>${data.total}</b> görüntüleme · ` + data.pages.map((p) => `${esc(p.path)}: ${p.views}`).join(' · '); }
-  catch { stats.textContent = 'İstatistik alınamadı (MongoDB bağlı mı?)'; }
+  catch { stats.textContent = 'İstatistik alınamadı (anahtar yanlış ya da MongoDB bağlı değil).'; }
 }
-next.onclick = loadQuote; loadQuote(); loadHealth(); setTimeout(loadStats, 600);
+next.onclick = loadQuote; loadQuote(); loadHealth(); if (localStorage.getItem('adminKey')) { statsBox.hidden = false; setTimeout(loadStats, 600); }
 </script></body></html>
