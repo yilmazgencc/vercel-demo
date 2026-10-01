@@ -9,5 +9,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
     "mongodb": "^7.7.0"
+  },
+  "devDependencies": {
+    "pg": "^8.23.1"
   }
 }
