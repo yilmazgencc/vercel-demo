@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb';
 
-const PATHS = ['/', '/blog', '/tools', '/dashboard', '/about'];
+const PATHS = ['/', '/blog', '/tools', '/dashboard', '/about', '/shop', '/admin'];
 let client;
 const collection = () => {
   client ??= new MongoClient(process.env.MONGODB_URI);

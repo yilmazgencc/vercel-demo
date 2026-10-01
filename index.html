@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vercel Demo</title><link rel="stylesheet" href="/assets/style.css"></head>
+<title>Vercel Store</title><link rel="stylesheet" href="/assets/style.css"></head>
 <body><main>
-  <h1>▲ Vercel Demo</h1>
-  <p class="lead">Statik sayfalar, serverless API ve istemci tarafı araçlar tek projede.</p>
-  <div class="grid">
-    <a class="card" href="/blog" style="text-decoration:none;color:inherit"><h3>📝 Blog</h3><p class="muted">API'den gelen yazılar; etiket ve arama filtresi.</p></a>
-    <a class="card" href="/tools" style="text-decoration:none;color:inherit"><h3>🧰 Araçlar</h3><p class="muted">Yapılacaklar listesi, Markdown önizleme, geri sayım.</p></a>
+  <div class="hero"><h1>▲ Vercel Store</h1>
+    <p class="lead">Vercel + Postgres + MongoDB ile yapılmış demo mağaza: stok, sepet, kupon, sipariş ve yönetim paneli.</p>
+    <a class="btn" href="/shop">Alışverişe başla →</a></div>
+  <h2 style="margin-top:0">Öne çıkanlar</h2>
+  <div class="grid" id="featured"><p class="muted">Yükleniyor…</p></div>
+  <div class="grid" style="margin-top:1rem">
+    <a class="card" href="/blog" style="text-decoration:none;color:inherit"><h3>📝 Blog</h3><p class="muted">Yazılar Postgres'ten; ziyaretçi defteri MongoDB'de.</p></a>
+    <a class="card" href="/tools" style="text-decoration:none;color:inherit"><h3>🧰 Hesabım ve araçlar</h3><p class="muted">Giriş yap, kişisel görev listesi, Markdown, geri sayım.</p></a>
     <a class="card" href="/dashboard" style="text-decoration:none;color:inherit"><h3>📊 Dashboard</h3><p class="muted">API gecikmesini canlı ölçen grafik.</p></a>
   </div>
   <h2>Günün sözü</h2>
@@ -21,7 +24,7 @@
 </main>
 <footer>Vercel ile yayınlandı</footer>
 <script type="module">
-import { api, esc } from '/assets/app.js';
+import { api, esc, money } from '/assets/app.js';
 async function loadQuote() {
   try { const { data } = await api('/api/quote'); quote.textContent = `“${data.text}”`; author.textContent = '— ' + data.author; }
   catch { quote.textContent = 'Söz yüklenemedi (yerelde "vercel dev" ile çalıştırın).'; }
@@ -31,10 +34,17 @@ async function loadHealth() {
     health.innerHTML = `Çalışıyor · bölge <b>${esc(data.region)}</b> · Node ${esc(data.node)} · ${ms.toFixed(0)} ms`; }
   catch { dot.className = 'dot bad'; health.textContent = 'API erişilemiyor'; }
 }
+async function loadFeatured() {
+  try { const { data } = await api('/api/products');
+    featured.innerHTML = data.products.filter((p) => p.stock > 0).slice(0, 4).map((p) => `<a class="card product" href="/shop" style="text-decoration:none;color:inherit">
+      <div class="pic" aria-hidden="true">${esc(p.emoji)}</div><h3>${esc(p.name)}</h3><span class="price">${money(p.price_cents)}</span></a>`).join('')
+      || '<p class="muted">Henüz ürün yok.</p>'; }
+  catch { featured.innerHTML = '<p class="muted">Ürünler yüklenemedi.</p>'; }
+}
 async function loadStats() {
   try { const { data } = await api('/api/stats');
     stats.innerHTML = `Toplam <b>${data.total}</b> görüntüleme · ` + data.pages.map((p) => `${esc(p.path)}: ${p.views}`).join(' · '); }
   catch { stats.textContent = 'İstatistik alınamadı (anahtar yanlış ya da MongoDB bağlı değil).'; }
 }
-next.onclick = loadQuote; loadQuote(); loadHealth(); if (localStorage.getItem('adminKey')) { statsBox.hidden = false; setTimeout(loadStats, 600); }
+loadFeatured(); next.onclick = loadQuote; loadQuote(); loadHealth(); if (localStorage.getItem('adminKey')) { statsBox.hidden = false; setTimeout(loadStats, 600); }
 </script></body></html>

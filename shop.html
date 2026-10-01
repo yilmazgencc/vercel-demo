@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mağaza · Vercel Store</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body><main>
+  <div class="hero"><h1>🛍️ Vercel Store</h1><p class="lead" style="margin:0">Ürünler Postgres'ten, sipariş ve stok yönetimi gerçek zamanlı. Kupon dene: <b>HOSGELDIN10</b></p></div>
+
+  <div class="row">
+    <input id="q" type="search" placeholder="Ürün ara…" aria-label="Ara">
+    <select id="cat" style="width:auto" aria-label="Kategori"><option value="">Tüm kategoriler</option></select>
+    <select id="sort" style="width:auto" aria-label="Sırala">
+      <option value="new">En yeni</option><option value="asc">Fiyat ↑</option><option value="desc">Fiyat ↓</option>
+    </select>
+  </div>
+  <p class="muted" id="count" style="margin:.8rem 0"></p>
+  <div class="grid" id="grid"></div>
+
+  <section id="myOrders" hidden>
+    <h2>📦 Siparişlerim</h2>
+    <div id="orderList"></div>
+  </section>
+</main>
+
+<button class="cart-btn" id="cartBtn">🛒 Sepet <span id="cartCount">0</span></button>
+
+<aside class="drawer" id="drawer" hidden aria-label="Sepet">
+  <div class="row" style="justify-content:space-between"><h2>Sepetim</h2><button class="ghost" id="closeCart" aria-label="Kapat">✕</button></div>
+  <div id="lines"></div>
+  <div id="totals"></div>
+  <form class="form-col" id="checkout" hidden>
+    <div class="row"><input id="coupon" placeholder="Kupon kodu" maxlength="30" aria-label="Kupon"><button type="button" class="ghost" id="applyCoupon">Uygula</button></div>
+    <input id="cName" placeholder="Ad soyad" maxlength="80" required aria-label="Ad soyad">
+    <input id="email" type="email" placeholder="E-posta" maxlength="120" required aria-label="E-posta">
+    <textarea id="address" placeholder="Teslimat adresi" minlength="10" maxlength="300" required aria-label="Adres"></textarea>
+    <input id="note" placeholder="Sipariş notu (isteğe bağlı)" maxlength="300" aria-label="Not">
+    <button id="placeBtn">Siparişi tamamla</button>
+    <p class="muted">Demo mağazadır: gerçek ödeme alınmaz.</p>
+  </form>
+  <div id="msg"></div>
+</aside>
+
+<footer>Vercel ile yayınlandı</footer>
+<script type="module">
+import { api, esc, money } from '/assets/app.js';
+
+let products = [], cart = JSON.parse(localStorage.getItem('cart') || '[]'), percent = 0, couponCode = '';
+const byId = (id) => products.find((p) => p.id === id);
+const saveCart = () => { localStorage.setItem('cart', JSON.stringify(cart)); renderCart(); };
+const session = (() => { try { return JSON.parse(localStorage.getItem('session')); } catch { return null; } })();
+const authHeader = session ? { Authorization: 'Bearer ' + session.token } : {};
+
+async function loadProducts() {
+  try {
+    const { data } = await api('/api/products');
+    products = data.products;
+    if (cat.options.length === 1) data.categories.forEach((c) => cat.add(new Option(c, c)));
+    cart = cart.filter((l) => byId(l.id));   // silinen ürünleri temizle
+    renderGrid(); renderCart();
+  } catch { count.textContent = 'Ürünler yüklenemedi (Supabase ve db/shop.sql kurulu mu?).'; }
+}
+
+function renderGrid() {
+  const term = q.value.trim().toLowerCase();
+  let list = products.filter((p) => (!cat.value || p.category === cat.value) && (p.name + p.description).toLowerCase().includes(term));
+  if (sort.value === 'asc') list = [...list].sort((a, b) => a.price_cents - b.price_cents);
+  if (sort.value === 'desc') list = [...list].sort((a, b) => b.price_cents - a.price_cents);
+  count.textContent = `${list.length} ürün`;
+  grid.innerHTML = list.map((p) => {
+    const stock = p.stock === 0 ? '<span class="badge out">Tükendi</span>' : p.stock <= 5 ? `<span class="badge low">Son ${p.stock}</span>` : '';
+    return `<article class="card product"><div class="pic" aria-hidden="true">${esc(p.emoji)}</div>
+      <span><span class="tag">${esc(p.category)}</span>${stock}</span>
+      <h3>${esc(p.name)}</h3><p class="muted">${esc(p.description)}</p>
+      <div class="foot"><span class="price">${money(p.price_cents)}</span>
+      <button data-add="${p.id}" ${p.stock === 0 ? 'disabled' : ''}>Sepete ekle</button></div></article>`;
+  }).join('') || '<p class="muted">Ürün bulunamadı.</p>';
+}
+
+function renderCart() {
+  const n = cart.reduce((s, l) => s + l.qty, 0);
+  cartCount.textContent = n;
+  lines.innerHTML = cart.map((l) => { const p = byId(l.id); return `<div class="line"><span style="font-size:1.6rem">${esc(p.emoji)}</span>
+    <div class="grow"><b>${esc(p.name)}</b><div class="muted">${money(p.price_cents)}</div></div>
+    <div class="qty"><button class="ghost" data-dec="${p.id}" aria-label="Azalt">−</button><span>${l.qty}</span><button class="ghost" data-inc="${p.id}" aria-label="Artır">+</button></div>
+    <button class="ghost" data-rm="${p.id}" aria-label="Kaldır">✕</button></div>`; }).join('') || '<p class="muted">Sepetiniz boş.</p>';
+  const sub = cart.reduce((s, l) => s + byId(l.id).price_cents * l.qty, 0), disc = Math.floor(sub * percent / 100);
+  totals.innerHTML = cart.length ? `<div class="sum"><span>Ara toplam</span><span>${money(sub)}</span></div>` +
+    (disc ? `<div class="sum"><span>İndirim (%${percent})</span><span>−${money(disc)}</span></div>` : '') +
+    `<div class="sum total"><span>Toplam</span><span>${money(sub - disc)}</span></div>` : '';
+  checkout.hidden = !cart.length;
+}
+
+function add(id, delta) {
+  const p = byId(id), l = cart.find((x) => x.id === id);
+  if (!p) return;
+  const next = (l?.qty ?? 0) + delta;
+  if (next > p.stock) { msg.innerHTML = `<p class="notice err">Stokta yalnızca ${p.stock} adet var.</p>`; return; }
+  msg.innerHTML = '';
+  if (next <= 0) cart = cart.filter((x) => x.id !== id);
+  else if (l) l.qty = next; else cart.push({ id, qty: next });
+  saveCart();
+}
+
+grid.onclick = (e) => { const id = +e.target.dataset.add; if (id) { add(id, 1); drawer.hidden = false; } };
+lines.onclick = (e) => { const d = e.target.dataset;
+  if (d.inc) add(+d.inc, 1); else if (d.dec) add(+d.dec, -1); else if (d.rm) { cart = cart.filter((x) => x.id !== +d.rm); saveCart(); } };
+cartBtn.onclick = () => { drawer.hidden = !drawer.hidden; };
+closeCart.onclick = () => { drawer.hidden = true; };
+q.oninput = cat.onchange = sort.onchange = renderGrid;
+
+applyCoupon.onclick = async () => {
+  const code = coupon.value.trim().toUpperCase(); if (!code) { percent = 0; couponCode = ''; return renderCart(); }
+  try { const { data } = await api('/api/coupon?code=' + encodeURIComponent(code)); percent = data.percent; couponCode = data.code;
+    msg.innerHTML = `<p class="notice">Kupon uygulandı: %${percent} indirim.</p>`; }
+  catch { percent = 0; couponCode = ''; msg.innerHTML = '<p class="notice err">Geçersiz kupon.</p>'; }
+  renderCart();
+};
+
+checkout.onsubmit = async (e) => {
+  e.preventDefault(); placeBtn.disabled = true; msg.innerHTML = '';
+  try {
+    const r = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader },
+      body: JSON.stringify({ name: cName.value, email: email.value, address: address.value, note: note.value,
+        coupon: couponCode, items: cart.map(({ id, qty }) => ({ id, qty })) }) });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || 'HTTP ' + r.status);
+    cart = []; percent = 0; couponCode = ''; coupon.value = ''; saveCart();
+    msg.innerHTML = `<p class="notice">Siparişiniz alındı! Toplam ${money(body.total_cents)}<br><span class="muted">Sipariş no: ${esc(body.id)}</span></p>`;
+    await loadProducts(); loadOrders();
+  } catch (err) { msg.innerHTML = `<p class="notice err">${esc(err.message)}</p>`; await loadProducts(); }
+  placeBtn.disabled = false;
+};
+
+async function loadOrders() {
+  if (!session) return;
+  try {
+    const r = await fetch('/api/orders', { headers: authHeader }); if (!r.ok) throw new Error();
+    const orders = await r.json(); myOrders.hidden = false;
+    orderList.innerHTML = orders.map((o) => `<div class="card" style="margin-bottom:.6rem">
+      <div class="row" style="justify-content:space-between"><b>${new Date(o.created_at).toLocaleString('tr-TR')}</b><span class="badge">${esc(o.status)}</span></div>
+      <p class="muted">${o.items.map((i) => `${esc(i.emoji)} ${esc(i.name)} ×${i.qty}`).join(' · ')}</p>
+      <b>${money(o.total_cents)}</b></div>`).join('') || '<p class="muted">Henüz siparişiniz yok.</p>';
+  } catch { /* oturum süresi dolmuş olabilir; sessizce gizli kalır */ }
+}
+if (!session) { myOrders.hidden = false; orderList.innerHTML = '<p class="muted">Siparişlerini görmek için <a href="/tools">giriş yap</a>.</p>'; }
+
+loadProducts(); loadOrders();
+</script></body></html>

@@ -1,10 +1,10 @@
-const PAGES = [['/', 'Ana sayfa'], ['/blog', 'Blog'], ['/tools', 'Araçlar'], ['/dashboard', 'Dashboard'], ['/about', 'Hakkında']];
+const PAGES = [['/', 'Ana sayfa'], ['/shop', '🛍️ Mağaza'], ['/blog', 'Blog'], ['/tools', 'Araçlar'], ['/dashboard', 'Dashboard'], ['/about', 'Hakkında']];
 
 export function mountNav() {
   const here = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '') || '/';
   const nav = document.createElement('nav');
-  nav.innerHTML = '<a class="brand" href="/">▲ Vercel Demo</a>' +
-    PAGES.map(([h, t]) => `<a class="link${h === here ? ' active' : ''}" href="${h}">${t}</a>`).join('') +
+  nav.innerHTML = '<a class="brand" href="/">▲ Vercel Store</a>' +
+    [...PAGES, ...(localStorage.getItem('adminKey') ? [['/admin', '⚙️ Yönetim']] : [])].map(([h, t]) => `<a class="link${h === here ? ' active' : ''}" href="${h}">${t}</a>`).join('') +
     '<button class="ghost" id="theme" aria-label="Tema değiştir">🌓</button>';
   document.body.prepend(nav);
   const saved = localStorage.getItem('theme');
@@ -17,6 +17,8 @@ export function mountNav() {
 }
 
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+export const money = (cents) => (cents / 100).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
 
 export async function api(path) {
   const t0 = performance.now();

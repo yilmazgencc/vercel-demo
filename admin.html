@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Yönetim · Vercel Store</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body><main>
+  <h1>⚙️ Yönetim</h1>
+
+  <form class="card row" id="keyForm" hidden>
+    <input id="keyIn" type="password" placeholder="Admin anahtarı" autocomplete="off" required aria-label="Admin anahtarı"><button>Giriş</button>
+  </form>
+
+  <div id="panel" hidden>
+    <div class="row" style="justify-content:space-between"><p class="lead" style="margin:0">Ürün, stok ve siparişleri yönet.</p><button class="ghost" id="logout">Çıkış</button></div>
+    <div class="grid" style="margin:1rem 0" id="kpis"></div>
+    <div id="msg"></div>
+
+    <h2>Siparişler</h2>
+    <div class="card table-wrap"><table><thead><tr><th>Tarih</th><th>Müşteri</th><th>Ürünler</th><th>Toplam</th><th>Durum</th></tr></thead><tbody id="orderRows"></tbody></table></div>
+
+    <h2>Ürünler</h2>
+    <form class="card" id="addForm">
+      <div class="row">
+        <input id="nName" placeholder="Ürün adı" maxlength="100" required aria-label="Ürün adı">
+        <input id="nEmoji" placeholder="Emoji" maxlength="8" style="max-width:90px" aria-label="Emoji">
+        <input id="nCat" placeholder="Kategori" maxlength="30" style="max-width:150px" aria-label="Kategori">
+      </div>
+      <div class="row" style="margin-top:.6rem">
+        <input id="nPrice" type="number" min="0" step="0.01" placeholder="Fiyat (₺)" required aria-label="Fiyat">
+        <input id="nStock" type="number" min="0" step="1" placeholder="Stok" required aria-label="Stok">
+        <input id="nDesc" placeholder="Açıklama" maxlength="600" aria-label="Açıklama">
+        <button>Ürün ekle</button>
+      </div>
+    </form>
+    <div class="card table-wrap" style="margin-top:1rem"><table><thead><tr><th></th><th>Ürün</th><th>Fiyat (₺)</th><th>Stok</th><th>Yayında</th><th></th></tr></thead><tbody id="prods"></tbody></table></div>
+
+    <h2>Ziyaretler</h2>
+    <div class="card"><span class="muted" id="views">yükleniyor…</span></div>
+  </div>
+</main><footer>Vercel ile yayınlandı</footer>
+<script type="module">
+import { esc, money } from '/assets/app.js';
+const STATUSES = ['yeni', 'hazırlanıyor', 'kargoda', 'teslim edildi', 'iptal'];
+let key = localStorage.getItem('adminKey'), products = [], orders = [];
+
+async function call(method, url, body) {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'x-admin-key': key }, body: body && JSON.stringify(body) });
+  if (r.status === 401) { localStorage.removeItem('adminKey'); key = null; show(); throw new Error('Yetkisiz: anahtar yanlış'); }
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
+  return r.status === 204 ? null : r.json();
+}
+const flash = (text, err) => { msg.innerHTML = `<p class="notice${err ? ' err' : ''}">${esc(text)}</p>`; };
+const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { flash(e.message, true); } };
+
+function show() { keyForm.hidden = !!key; panel.hidden = !key; if (key) refresh(); }
+keyForm.onsubmit = (e) => { e.preventDefault(); key = keyIn.value.trim(); localStorage.setItem('adminKey', key); keyIn.value = ''; show(); };
+logout.onclick = () => { localStorage.removeItem('adminKey'); key = null; location.reload(); };
+
+const refresh = guard(async () => {
+  [products, orders] = await Promise.all([call('GET', '/api/products?all=1').then((d) => d.products), call('GET', '/api/orders')]);
+  render();
+  try { const s = await call('GET', '/api/stats'); views.innerHTML = `Toplam <b>${s.total}</b> görüntüleme · ` + s.pages.map((p) => `${esc(p.path)}: ${p.views}`).join(' · '); }
+  catch { views.textContent = 'İstatistik alınamadı.'; }
+});
+
+function render() {
+  const live = orders.filter((o) => o.status !== 'iptal');
+  kpis.innerHTML = [['Ciro', money(live.reduce((s, o) => s + o.total_cents, 0))], ['Sipariş', orders.length],
+    ['Bekleyen', orders.filter((o) => o.status === 'yeni').length], ['Ürün', products.length],
+    ['Tükenen', products.filter((p) => p.stock === 0).length]]
+    .map(([t, v]) => `<div class="card"><div class="muted">${t}</div><div class="big">${esc(v)}</div></div>`).join('');
+
+  orderRows.innerHTML = orders.map((o) => `<tr><td>${new Date(o.created_at).toLocaleString('tr-TR')}</td>
+    <td>${esc(o.name)}<div class="muted">${esc(o.email)}</div><div class="muted">${esc(o.address)}</div>${o.note ? `<div class="muted">Not: ${esc(o.note)}</div>` : ''}</td>
+    <td>${o.items.map((i) => `${esc(i.emoji)} ${esc(i.name)} ×${i.qty}`).join('<br>')}</td>
+    <td>${money(o.total_cents)}${o.coupon ? `<div class="muted">${esc(o.coupon)}</div>` : ''}</td>
+    <td><select data-status="${esc(o.id)}" style="width:auto" aria-label="Durum">${STATUSES.map((s) => `<option${s === o.status ? ' selected' : ''}>${s}</option>`).join('')}</select></td></tr>`).join('')
+    || '<tr><td colspan="5" class="muted">Henüz sipariş yok.</td></tr>';
+
+  prods.innerHTML = products.map((p) => `<tr data-id="${p.id}"><td style="font-size:1.5rem">${esc(p.emoji)}</td>
+    <td>${esc(p.name)}<div class="muted">${esc(p.category)}</div></td>
+    <td><input type="number" min="0" step="0.01" value="${p.price_cents / 100}" data-f="price" style="width:110px" aria-label="Fiyat"></td>
+    <td><input type="number" min="0" step="1" value="${p.stock}" data-f="stock" style="width:90px" aria-label="Stok"></td>
+    <td><input type="checkbox" style="width:auto" data-f="active" ${p.active ? 'checked' : ''} aria-label="Yayında"></td>
+    <td><button class="ghost" data-del="${p.id}">Sil</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Ürün yok. db/shop.sql çalıştırıldı mı?</td></tr>';
+}
+
+orderRows.onchange = guard(async (e) => {
+  const id = e.target.dataset.status; if (!id) return;
+  await call('PATCH', '/api/orders?id=' + id, { status: e.target.value }); flash('Sipariş durumu güncellendi.'); await refresh();
+});
+
+prods.onchange = guard(async (e) => {
+  const f = e.target.dataset.f; if (!f) return;
+  const id = e.target.closest('tr').dataset.id;
+  const patch = f === 'price' ? { price_cents: Math.round(Number(e.target.value) * 100) }
+    : f === 'stock' ? { stock: Number(e.target.value) } : { active: e.target.checked };
+  await call('PATCH', '/api/products?id=' + id, patch); flash('Ürün güncellendi.'); await refresh();
+});
+prods.onclick = guard(async (e) => {
+  const id = e.target.dataset.del; if (!id || !confirm('Ürün silinsin mi? (Geçmiş siparişler korunur)')) return;
+  await call('DELETE', '/api/products?id=' + id); flash('Ürün silindi.'); await refresh();
+});
+
+addForm.onsubmit = guard(async (e) => {
+  e.preventDefault();
+  await call('POST', '/api/products', { name: nName.value, emoji: nEmoji.value || '📦', category: nCat.value || 'genel',
+    price_cents: Math.round(Number(nPrice.value) * 100), stock: Number(nStock.value), description: nDesc.value });
+  addForm.reset(); flash('Ürün eklendi.'); await refresh();
+});
+
+show();
+</script></body></html>

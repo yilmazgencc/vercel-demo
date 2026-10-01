@@ -36,3 +36,29 @@ canvas { width:100%; height:240px; display:block }
 .big { font-size:1.8rem; font-weight:700 }
 footer { text-align:center; color:var(--muted); padding:2rem; border-top:1px solid var(--line) }
 [hidden]{display:none!important}
+
+/* Mağaza */
+.hero { text-align:center; padding:2.5rem 1rem; border-radius:18px; margin-bottom:1.5rem; background:linear-gradient(135deg,var(--card),var(--bg)); border:1px solid var(--line) }
+.hero h1 { font-size:2.6rem }
+.product { display:flex; flex-direction:column; gap:.35rem }
+.product .pic { font-size:3.6rem; text-align:center; padding:1rem 0; background:var(--bg); border-radius:10px }
+.product .price { font-weight:700; font-size:1.1rem }
+.product .foot { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding-top:.5rem }
+.badge { font-size:.75rem; padding:.1rem .5rem; border-radius:99px; background:var(--bg); border:1px solid var(--line) }
+.badge.low { color:var(--warn); border-color:var(--warn) } .badge.out { color:#ef5350; border-color:#ef5350 }
+button:disabled { opacity:.45; cursor:not-allowed }
+.cart-btn { position:fixed; right:1.2rem; bottom:1.2rem; z-index:8; box-shadow:0 6px 20px rgba(0,0,0,.35); padding:.8rem 1.2rem; border-radius:99px }
+.drawer { position:fixed; top:0; right:0; bottom:0; width:min(420px,100%); background:var(--bg); border-left:1px solid var(--line); z-index:20; overflow-y:auto; padding:1.2rem; box-shadow:-10px 0 30px rgba(0,0,0,.35) }
+.drawer h2 { margin-top:0 }
+.line { display:flex; align-items:center; gap:.6rem; padding:.6rem 0; border-bottom:1px solid var(--line) }
+.line .grow { flex:1 } .line .qty { display:flex; align-items:center; gap:.3rem }
+.line .qty button { padding:.1rem .55rem }
+.sum { display:flex; justify-content:space-between; padding:.2rem 0 }
+.sum.total { font-weight:700; font-size:1.15rem; border-top:1px solid var(--line); margin-top:.4rem; padding-top:.5rem }
+.form-col { display:flex; flex-direction:column; gap:.6rem; margin-top:1rem }
+.form-col textarea { min-height:70px; font-family:inherit }
+table { width:100%; border-collapse:collapse; font-size:.9rem }
+th, td { text-align:left; padding:.5rem .4rem; border-bottom:1px solid var(--line); vertical-align:top }
+.table-wrap { overflow-x:auto }
+.notice { padding:.8rem 1rem; border-radius:10px; border:1px solid var(--ok); color:var(--ok); margin:.8rem 0 }
+.notice.err { border-color:#ef5350; color:#ef5350 }
