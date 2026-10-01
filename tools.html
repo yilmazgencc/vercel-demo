@@ -5,6 +5,12 @@
   <h1>Araçlar</h1><p class="lead">Tamamen tarayıcıda çalışır; veriler localStorage'da saklanır.</p>
 
   <h2>✅ Yapılacaklar</h2>
+  <form class="card row" id="authForm" style="margin-bottom:1rem">
+    <input id="authEmail" type="email" placeholder="E-posta" autocomplete="email" required aria-label="E-posta">
+    <input id="authPass" type="password" placeholder="Şifre (en az 6)" autocomplete="current-password" minlength="6" required aria-label="Şifre">
+    <button>Giriş yap</button><button type="button" class="ghost" id="signupBtn">Kayıt ol</button>
+  </form>
+  <div class="row" id="userBar" hidden style="margin-bottom:1rem"><span class="muted" id="userEmail"></span><button class="ghost" id="logoutBtn">Çıkış</button></div>
   <form class="row" id="todoForm"><input id="todoIn" placeholder="Yeni görev…" aria-label="Yeni görev" required><button>Ekle</button>
     <select id="filter" style="width:auto" aria-label="Filtre"><option value="all">Hepsi</option><option value="open">Açık</option><option value="done">Biten</option></select></form>
   <ul class="todos" id="todos"></ul><p class="muted" id="todoCount"></p><p class="muted" id="storeInfo"></p>
@@ -26,16 +32,20 @@ const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; 
 
 const todosEl = document.getElementById('todos');
 let todos = [], remote = false;
+let session = load('session', null);
+const setSession = (s) => { session = s; s ? localStorage.setItem('session', JSON.stringify(s)) : localStorage.removeItem('session'); };
 const saveLocal = () => localStorage.setItem('todos', JSON.stringify(todos));
 async function call(method, url, body) {
-  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(session && { Authorization: 'Bearer ' + session.token }) }, body: body && JSON.stringify(body) });
+  if (r.status === 401 && session && !url.startsWith('/api/auth')) { setSession(null); }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
   return r.status === 204 ? null : r.json();
 }
 async function loadTodos() {
-  try { todos = await call('GET', '/api/todos'); remote = true; }
+  authForm.hidden = !!session; userBar.hidden = !session; if (session) userEmail.textContent = session.email;
+  try { if (!session) throw new Error(); todos = await call('GET', '/api/todos'); remote = true; }
   catch { todos = load('todos', []); remote = false; }
-  storeInfo.textContent = remote ? 'Kayıt yeri: Supabase' : 'Kayıt yeri: tarayıcı (Supabase erişilemiyor)';
+  storeInfo.textContent = remote ? 'Kayıt yeri: Supabase (hesabına özel)' : session ? 'Oturum süresi doldu, tekrar giriş yap.' : 'Kayıt yeri: tarayıcı (giriş yapınca Supabase\'e kaydedilir)';
   renderTodos();
 }
 async function mutate(remoteFn, localFn) {
@@ -53,6 +63,14 @@ todoForm.onsubmit = (e) => { e.preventDefault(); const text = todoIn.value.trim(
 todosEl.onclick = (e) => { const id = +(e.target.dataset.id || e.target.dataset.del); if (!id) return;
   if (e.target.dataset.del) mutate(() => call('DELETE', `/api/todos?id=${id}`), () => { todos = todos.filter((t) => t.id !== id); });
   else { const t = todos.find((x) => x.id === id); mutate(() => call('PATCH', `/api/todos?id=${id}`, { done: !t.done }), () => { t.done = !t.done; }); } };
+async function auth(action) {
+  if (!authForm.reportValidity()) return;
+  try { setSession(await call('POST', '/api/auth', { action, email: authEmail.value, password: authPass.value })); authPass.value = ''; loadTodos(); }
+  catch (e) { storeInfo.textContent = 'Hata: ' + e.message; }
+}
+authForm.onsubmit = (e) => { e.preventDefault(); auth('login'); };
+signupBtn.onclick = () => auth('signup');
+logoutBtn.onclick = () => { setSession(null); loadTodos(); };
 filter.onchange = renderTodos; loadTodos();
 
 function markdown(src) {

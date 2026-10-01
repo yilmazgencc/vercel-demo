@@ -29,3 +29,8 @@ insert into posts (slug, title, tag, minutes, summary) values
   ('caching', 'Cache-Control ile hız kazanmak', 'performans', 5, 'max-age, s-maxage ve stale-while-revalidate farkları.'),
   ('env-vars', 'Ortam değişkenleri ve gizli bilgiler', 'güvenlik', 3, 'Development, preview ve production için ayrı değerler.')
 on conflict (slug) do nothing;
+
+-- Kullanıcıya özel görevler (api/todos.js user_id ile filtreler).
+-- Eski, sahipsiz görevler user_id'si null olduğu için artık görünmez.
+alter table todos add column if not exists user_id uuid references auth.users(id) on delete cascade;
+create index if not exists todos_user_id_idx on todos (user_id);
