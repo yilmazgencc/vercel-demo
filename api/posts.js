@@ -1,4 +1,7 @@
-const POSTS = [
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase'te `posts` tablosu yoksa ya da erişilemezse kullanılan yedek liste.
+const FALLBACK = [
   { slug: 'edge-network', title: 'Edge Network nasıl çalışır?', tag: 'altyapı', minutes: 4,
     summary: 'İçeriğin kullanıcıya en yakın noktadan sunulması ve önbellek katmanları.' },
   { slug: 'preview-deploys', title: 'Preview deployment ile güvenli yayın', tag: 'iş akışı', minutes: 3,
@@ -11,8 +14,17 @@ const POSTS = [
     summary: 'Development, preview ve production için ayrı değerler.' },
 ];
 
-export default function handler(req, res) {
+let db;
+async function loadPosts() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return FALLBACK;
+  db ??= createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await db.from('posts').select('slug,title,tag,minutes,summary').order('id');
+  return error || !data.length ? FALLBACK : data;
+}
+
+export default async function handler(req, res) {
   const { tag, q } = req.query;
+  const POSTS = await loadPosts();
   let list = POSTS;
   if (tag) list = list.filter((p) => p.tag === tag);
   if (q) {

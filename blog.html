@@ -32,12 +32,18 @@ async function load() {
 q.oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };
 tag.onchange = load; load();
 
+const adminKey = localStorage.getItem('adminKey');
+gbList.onclick = async (e) => {
+  const id = e.target.dataset.del; if (!id || !confirm('Bu mesaj silinsin mi?')) return;
+  const r = await fetch('/api/guestbook?id=' + encodeURIComponent(id), { method: 'DELETE', headers: { 'x-admin-key': adminKey } });
+  if (r.ok) loadGb(); else alert('Silinemedi: ' + ((await r.json().catch(() => ({}))).error || r.status));
+};
 async function loadGb() {
   try {
     const r = await fetch('/api/guestbook'); if (!r.ok) throw new Error();
     const items = await r.json();
     gbList.innerHTML = items.map((m) => `<div class="card" style="margin-bottom:.6rem"><b>${esc(m.name)}</b>
-      <span class="muted"> · ${new Date(m.createdAt).toLocaleString('tr-TR')}</span><p>${esc(m.message)}</p></div>`).join('') || '<p class="muted">Henüz mesaj yok.</p>';
+      <span class="muted"> · ${new Date(m.createdAt).toLocaleString('tr-TR')}</span>${adminKey ? ` <button class="ghost" data-del="${esc(m.id)}" aria-label="Sil">✕</button>` : ''}<p>${esc(m.message)}</p></div>`).join('') || '<p class="muted">Henüz mesaj yok.</p>';
   } catch { gbList.innerHTML = '<p class="muted">Ziyaretçi defteri yüklenemedi.</p>'; }
 }
 gbForm.onsubmit = async (e) => {

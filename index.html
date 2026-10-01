@@ -14,6 +14,8 @@
     <div class="row" style="margin-top:.8rem"><button id="next">Başka söz</button></div></div>
   <h2>Sunucu durumu</h2>
   <div class="card"><span class="dot" id="dot"></span><span id="health" class="muted">kontrol ediliyor…</span></div>
+  <h2>Ziyaret istatistikleri</h2>
+  <div class="card"><span id="stats" class="muted">yükleniyor…</span></div>
 </main>
 <footer>Vercel ile yayınlandı</footer>
 <script type="module">
@@ -27,5 +29,10 @@ async function loadHealth() {
     health.innerHTML = `Çalışıyor · bölge <b>${esc(data.region)}</b> · Node ${esc(data.node)} · ${ms.toFixed(0)} ms`; }
   catch { dot.className = 'dot bad'; health.textContent = 'API erişilemiyor'; }
 }
-next.onclick = loadQuote; loadQuote(); loadHealth();
+async function loadStats() {
+  try { const { data } = await api('/api/stats');
+    stats.innerHTML = `Toplam <b>${data.total}</b> görüntüleme · ` + data.pages.map((p) => `${esc(p.path)}: ${p.views}`).join(' · '); }
+  catch { stats.textContent = 'İstatistik alınamadı (MongoDB bağlı mı?)'; }
+}
+next.onclick = loadQuote; loadQuote(); loadHealth(); setTimeout(loadStats, 600);
 </script></body></html>

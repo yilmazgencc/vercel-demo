@@ -26,4 +26,10 @@ export async function api(path) {
   return { data: await res.json(), ms };
 }
 
+function trackView() {
+  const path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '') || '/';
+  fetch('/api/stats', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) }).catch(() => {});
+}
+
 mountNav();
+trackView();

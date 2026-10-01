@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 let client;
 const collection = () => {
@@ -29,7 +29,17 @@ export default async function handler(req, res) {
       return res.status(201).json({ id: String(insertedId), ...doc });
     }
 
-    res.setHeader('Allow', 'GET, POST');
+    if (req.method === 'DELETE') {
+      const key = process.env.ADMIN_KEY;
+      if (!key) return res.status(503).json({ error: 'ADMIN_KEY yapılandırılmamış' });
+      if (req.headers['x-admin-key'] !== key) return res.status(401).json({ error: 'yetkisiz' });
+      const id = String(req.query.id ?? '');
+      if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'geçersiz id' });
+      const { deletedCount } = await col.deleteOne({ _id: new ObjectId(id) });
+      return deletedCount ? res.status(204).end() : res.status(404).json({ error: 'kayıt yok' });
+    }
+
+    res.setHeader('Allow', 'GET, POST, DELETE');
     res.status(405).json({ error: 'method not allowed' });
   } catch (err) {
     res.status(500).json({ error: err.message });
