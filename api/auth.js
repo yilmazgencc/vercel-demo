@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { limited } from '../lib/ratelimit.js';
 
 let db;
 const client = () => (db ??= createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -14,6 +15,8 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'method not allowed' });
   }
+
+  if (await limited(req, res, 'auth', 10, 600)) return;
 
   const { action } = req.body ?? {};
   const email = String(req.body?.email ?? '').trim().toLowerCase();

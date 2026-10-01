@@ -1,4 +1,5 @@
 import { configured, supabase, isAdmin, userFrom } from '../lib/shop.js';
+import { limited } from '../lib/ratelimit.js';
 
 const STATUSES = ['yeni', 'hazırlanıyor', 'kargoda', 'teslim edildi', 'iptal'];
 const COLS = 'id,name,email,address,note,items,subtotal_cents,discount_cents,total_cents,coupon,status,created_at';
@@ -12,6 +13,7 @@ export default async function handler(req, res) {
   try {
     // Sipariş ver (herkes; giriş yapmışsa hesaba bağlanır)
     if (req.method === 'POST') {
+      if (await limited(req, res, 'order', 5, 600)) return;
       const b = req.body ?? {};
       const name = String(b.name ?? '').trim(), email = String(b.email ?? '').trim().toLowerCase();
       const address = String(b.address ?? '').trim(), note = String(b.note ?? '').trim();
@@ -52,9 +54,10 @@ export default async function handler(req, res) {
       const id = String(req.query.id ?? '');
       if (!/^[0-9a-f-]{36}$/i.test(id)) return bad('geçersiz id');
       if (!STATUSES.includes(req.body?.status)) return bad('geçersiz durum');
-      const { data, error } = await sb.from('orders').update({ status: req.body.status }).eq('id', id).select(COLS).single();
-      if (error) throw error;
-      return res.json(data);
+      // Veritabanı fonksiyonu: iptalde stoğu iade eder, iptal edilmiş siparişi yeniden açmaz.
+      const { data, error } = await sb.rpc('set_order_status', { p_id: id, p_status: req.body.status });
+      if (error) return res.status(error.code === 'P0001' ? 400 : 500).json({ error: error.message });
+      return res.json(Array.isArray(data) ? data[0] : data);
     }
 
     res.setHeader('Allow', 'GET, POST, PATCH');

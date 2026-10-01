@@ -99,3 +99,50 @@ on conflict (slug) do nothing;
 
 insert into coupons (code, percent) values ('HOSGELDIN10', 10), ('YAZ20', 20)
 on conflict (code) do nothing;
+
+-- Sipariş durumunu değiştirir; iptalde stoğu iade eder. İptal edilen sipariş yeniden açılamaz (çift iade olmasın).
+create or replace function set_order_status(p_id uuid, p_status text) returns orders as $$
+declare
+  v_o orders%rowtype;
+  v_item jsonb;
+begin
+  select * into v_o from orders where id = p_id for update;
+  if not found then raise exception 'Sipariş bulunamadı'; end if;
+  if v_o.status = 'iptal' and p_status <> 'iptal' then raise exception 'İptal edilen sipariş yeniden açılamaz'; end if;
+  if p_status = 'iptal' and v_o.status <> 'iptal' then
+    for v_item in select * from jsonb_array_elements(v_o.items) loop
+      update products set stock = stock + (v_item->>'qty')::int where id = (v_item->>'id')::bigint;
+    end loop;
+  end if;
+  update orders set status = p_status where id = p_id returning * into v_o;
+  return v_o;
+end;
+$$ language plpgsql;
+
+revoke all on function set_order_status(uuid, text) from public, anon, authenticated;
+grant execute on function set_order_status(uuid, text) to service_role;
+
+-- Oran sınırı (sabit pencere). true = izin var, false = sınır aşıldı.
+create table if not exists rate_limits (
+  key text primary key,
+  window_start timestamptz not null,
+  hits int not null
+);
+alter table rate_limits enable row level security;
+
+create or replace function rate_hit(p_key text, p_limit int, p_window_seconds int) returns boolean as $$
+declare
+  v_hits int;
+begin
+  insert into rate_limits as r (key, window_start, hits) values (p_key, now(), 1)
+  on conflict (key) do update set
+    window_start = case when r.window_start < now() - make_interval(secs => p_window_seconds) then now() else r.window_start end,
+    hits = case when r.window_start < now() - make_interval(secs => p_window_seconds) then 1 else r.hits + 1 end
+  returning hits into v_hits;
+  if random() < 0.01 then delete from rate_limits where window_start < now() - interval '1 day'; end if;
+  return v_hits <= p_limit;
+end;
+$$ language plpgsql;
+
+revoke all on function rate_hit(text, int, int) from public, anon, authenticated;
+grant execute on function rate_hit(text, int, int) to service_role;

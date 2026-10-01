@@ -1,4 +1,5 @@
 import { MongoClient, ObjectId } from 'mongodb';
+import { limited } from '../lib/ratelimit.js';
 
 let client;
 const collection = () => {
@@ -20,6 +21,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      if (await limited(req, res, 'guestbook', 5, 600)) return;
       const name = String(req.body?.name ?? '').trim().slice(0, 40) || 'Anonim';
       const message = String(req.body?.message ?? '').trim();
       if (!message || message.length > 280) return res.status(400).json({ error: 'message 1-280 karakter olmalı' });

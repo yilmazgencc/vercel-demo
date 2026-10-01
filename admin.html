@@ -33,6 +33,14 @@
     </form>
     <div class="card table-wrap" style="margin-top:1rem"><table><thead><tr><th></th><th>Ürün</th><th>Fiyat (₺)</th><th>Stok</th><th>Yayında</th><th></th></tr></thead><tbody id="prods"></tbody></table></div>
 
+    <h2>Kuponlar</h2>
+    <form class="card row" id="couponForm">
+      <input id="cCode" placeholder="KOD (örn. YAZ25)" maxlength="30" pattern="[A-Za-z0-9_\-]{3,30}" required aria-label="Kupon kodu">
+      <input id="cPct" type="number" min="1" max="90" step="1" placeholder="İndirim %" style="max-width:130px" required aria-label="Yüzde">
+      <button>Kupon ekle</button>
+    </form>
+    <div class="card table-wrap" style="margin-top:1rem"><table><thead><tr><th>Kod</th><th>İndirim %</th><th>Aktif</th><th></th></tr></thead><tbody id="coupons"></tbody></table></div>
+
     <h2>Ziyaretler</h2>
     <div class="card"><span class="muted" id="views">yükleniyor…</span></div>
   </div>
@@ -40,7 +48,7 @@
 <script type="module">
 import { esc, money } from '/assets/app.js';
 const STATUSES = ['yeni', 'hazırlanıyor', 'kargoda', 'teslim edildi', 'iptal'];
-let key = localStorage.getItem('adminKey'), products = [], orders = [];
+let key = localStorage.getItem('adminKey'), products = [], orders = [], couponList = [];
 
 async function call(method, url, body) {
   const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'x-admin-key': key }, body: body && JSON.stringify(body) });
@@ -56,7 +64,7 @@ keyForm.onsubmit = (e) => { e.preventDefault(); key = keyIn.value.trim(); localS
 logout.onclick = () => { localStorage.removeItem('adminKey'); key = null; location.reload(); };
 
 const refresh = guard(async () => {
-  [products, orders] = await Promise.all([call('GET', '/api/products?all=1').then((d) => d.products), call('GET', '/api/orders')]);
+  [products, orders, couponList] = await Promise.all([call('GET', '/api/products?all=1').then((d) => d.products), call('GET', '/api/orders'), call('GET', '/api/coupon?all=1')]);
   render();
   try { const s = await call('GET', '/api/stats'); views.innerHTML = `Toplam <b>${s.total}</b> görüntüleme · ` + s.pages.map((p) => `${esc(p.path)}: ${p.views}`).join(' · '); }
   catch { views.textContent = 'İstatistik alınamadı.'; }
@@ -73,8 +81,13 @@ function render() {
     <td>${esc(o.name)}<div class="muted">${esc(o.email)}</div><div class="muted">${esc(o.address)}</div>${o.note ? `<div class="muted">Not: ${esc(o.note)}</div>` : ''}</td>
     <td>${o.items.map((i) => `${esc(i.emoji)} ${esc(i.name)} ×${i.qty}`).join('<br>')}</td>
     <td>${money(o.total_cents)}${o.coupon ? `<div class="muted">${esc(o.coupon)}</div>` : ''}</td>
-    <td><select data-status="${esc(o.id)}" style="width:auto" aria-label="Durum">${STATUSES.map((s) => `<option${s === o.status ? ' selected' : ''}>${s}</option>`).join('')}</select></td></tr>`).join('')
+    <td><select data-status="${esc(o.id)}" data-prev="${esc(o.status)}" ${o.status === 'iptal' ? 'disabled title="İptal edilen sipariş yeniden açılamaz"' : ''} style="width:auto" aria-label="Durum">${STATUSES.map((s) => `<option${s === o.status ? ' selected' : ''}>${s}</option>`).join('')}</select></td></tr>`).join('')
     || '<tr><td colspan="5" class="muted">Henüz sipariş yok.</td></tr>';
+
+  coupons.innerHTML = couponList.map((c) => `<tr data-code="${esc(c.code)}"><td><b>${esc(c.code)}</b></td>
+    <td><input type="number" min="1" max="90" step="1" value="${c.percent}" data-f="percent" style="width:90px" aria-label="Yüzde"></td>
+    <td><input type="checkbox" style="width:auto" data-f="active" ${c.active ? 'checked' : ''} aria-label="Aktif"></td>
+    <td><button class="ghost" data-del="${esc(c.code)}">Sil</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">Kupon yok.</td></tr>';
 
   prods.innerHTML = products.map((p) => `<tr data-id="${p.id}"><td style="font-size:1.5rem">${esc(p.emoji)}</td>
     <td>${esc(p.name)}<div class="muted">${esc(p.category)}</div></td>
@@ -86,6 +99,7 @@ function render() {
 
 orderRows.onchange = guard(async (e) => {
   const id = e.target.dataset.status; if (!id) return;
+  if (e.target.value === 'iptal' && !confirm('Sipariş iptal edilsin mi? Stok iade edilir ve sipariş yeniden açılamaz.')) { e.target.value = e.target.dataset.prev; return; }
   await call('PATCH', '/api/orders?id=' + id, { status: e.target.value }); flash('Sipariş durumu güncellendi.'); await refresh();
 });
 
@@ -99,6 +113,22 @@ prods.onchange = guard(async (e) => {
 prods.onclick = guard(async (e) => {
   const id = e.target.dataset.del; if (!id || !confirm('Ürün silinsin mi? (Geçmiş siparişler korunur)')) return;
   await call('DELETE', '/api/products?id=' + id); flash('Ürün silindi.'); await refresh();
+});
+
+coupons.onchange = guard(async (e) => {
+  const f = e.target.dataset.f; if (!f) return;
+  const code = e.target.closest('tr').dataset.code;
+  await call('PATCH', '/api/coupon?code=' + encodeURIComponent(code), f === 'percent' ? { percent: Number(e.target.value) } : { active: e.target.checked });
+  flash('Kupon güncellendi.'); await refresh();
+});
+coupons.onclick = guard(async (e) => {
+  const code = e.target.dataset.del; if (!code || !confirm(code + ' kuponu silinsin mi?')) return;
+  await call('DELETE', '/api/coupon?code=' + encodeURIComponent(code)); flash('Kupon silindi.'); await refresh();
+});
+couponForm.onsubmit = guard(async (e) => {
+  e.preventDefault();
+  await call('POST', '/api/coupon', { code: cCode.value, percent: Number(cPct.value) });
+  couponForm.reset(); flash('Kupon eklendi.'); await refresh();
 });
 
 addForm.onsubmit = guard(async (e) => {
